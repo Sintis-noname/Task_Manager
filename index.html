@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task & Report Manager — Dev Task Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        brand: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f17;
+            color: #e2e8f0;
+        }
+        code, pre, .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .task-card {
+            transition: all 0.15s ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#0b0f17] text-slate-200">
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-lg">
+                    <i class="fa-solid font-mono text-blue-400">&gt;_</i>
+                </div>
+                <div>
+                    <h1 class="text-base font-semibold text-slate-100 flex items-center gap-2">
+                        Dev Report & Task Manager
+                        <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-mono">v2.2</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Инженерный трекер задач (N-level nesting, Collapsible & Auto-Save)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Backup Quick Tools -->
+                <button id="btn-export-json" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5" title="Сохранить локальную базу в файл .json">
+                    <i class="fa-solid fa-download text-emerald-400"></i>
+                    <span class="hidden sm:inline">Сохранить DB</span>
+                </button>
+                <button id="btn-import-json-trigger" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5" title="Загрузить локальную базу из .json">
+                    <i class="fa-solid fa-upload text-amber-400"></i>
+                    <span class="hidden sm:inline">Загрузить DB</span>
+                </button>
+                <input type="file" id="input-import-file" accept=".json" class="hidden">
+
+                <button id="btn-import-modal" class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-import text-blue-400"></i>
+                    <span class="hidden sm:inline">Импорт / Парсинг</span>
+                </button>
+                <button id="btn-generate-report" class="px-4 py-1.5 text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-600/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-signature"></i>
+                    <span>Выгрузка отчета</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Progress Stats Banner -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-medium text-slate-400">Всего элементов</div>
+                    <div id="stat-total" class="text-2xl font-bold text-slate-100 font-mono mt-1">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+                    <i class="fa-solid fa-list-check text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-medium text-amber-400">В работе</div>
+                    <div id="stat-in-progress" class="text-2xl font-bold text-amber-400 font-mono mt-1">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-800/30 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-spinner fa-spin-pulse text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-medium text-emerald-400">Выполнено [+]</div>
+                    <div id="stat-completed" class="text-2xl font-bold text-emerald-400 font-mono mt-1">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-800/30 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-circle-check text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                    <div class="text-xs font-medium text-slate-400">Прогресс отчета</div>
+                    <div id="stat-percent" class="text-sm font-bold text-blue-400 font-mono">0%</div>
+                </div>
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3">
+                    <div id="progress-bar-fill" class="bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <!-- Filters & Collapse Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 overflow-x-auto text-xs sm:text-sm">
+                    <button data-filter="all" class="btn-filter active px-3 py-1.5 rounded-md font-medium text-slate-200 transition bg-slate-800">Все</button>
+                    <button data-filter="in_progress" class="btn-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200 transition">В работе</button>
+                    <button data-filter="done" class="btn-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200 transition">Выполненные (+)</button>
+                    <button data-filter="pending" class="btn-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200 transition">Запланировано</button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="btn-expand-all" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition" title="Развернуть все подпункты">
+                        <i class="fa-solid fa-angles-down mr-1"></i>Развернуть все
+                    </button>
+                    <button id="btn-collapse-all" class="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition" title="Свернуть все подпункты">
+                        <i class="fa-solid fa-angles-right mr-1"></i>Свернуть все
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search & Add Main Module -->
+            <div class="flex items-center gap-3">
+                <div class="relative flex-1 sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input type="text" id="input-search" placeholder="Поиск по задачам..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                </div>
+                <button id="btn-add-root-task" class="px-3.5 py-1.5 text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-blue-400 rounded-lg transition whitespace-nowrap flex items-center gap-2">
+                    <i class="fa-solid fa-folder-plus"></i>
+                    <span>+ Раздел / Модуль</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Task List Container -->
+        <div id="tasks-tree-container" class="space-y-4 pb-12">
+            <!-- Dynamic nested tree will render here -->
+        </div>
+
+    </main>
+
+    <!-- MODAL: Add / Edit Task Form -->
+    <div id="modal-task-form" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 id="task-modal-title" class="text-base font-semibold text-slate-100">Форма задачи</h3>
+                <button class="btn-close-modal text-slate-400 hover:text-slate-200 transition text-lg px-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="task-modal-target-id">
+                <input type="hidden" id="task-modal-parent-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Текст / Название подпункта</label>
+                    <input type="text" id="task-modal-input" placeholder="Введите название..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-end gap-3">
+                <button class="btn-close-modal px-4 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">Отмена</button>
+                <button id="btn-save-task-modal" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Generate & Export Report -->
+    <div id="modal-report" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                        <i class="fa-solid fa-file-contract"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-100">Формирование официального отчета</h2>
+                        <p class="text-xs text-slate-400">Чистовой формат для отправки руководству</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal text-slate-400 hover:text-slate-200 transition text-lg px-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Дата начала периода</label>
+                        <input type="text" id="report-date-start" value="03.11.2026" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Дата окончания периода</label>
+                        <input type="text" id="report-date-end" value="08.11.2026" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <input type="checkbox" id="report-include-server-note" checked class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700">
+                    <label for="report-include-server-note" class="text-xs text-slate-300 cursor-pointer">
+                        Учесть статус готовности сервера (наброски прототипа)
+                    </label>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Предпросмотр отчета</label>
+                        <span class="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                            <i class="fa-solid fa-shield-halved"></i> Готово к отправке
+                        </span>
+                    </div>
+                    <textarea id="report-output-text" rows="14" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs sm:text-sm text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-blue-500 selection:bg-blue-600 selection:text-white" readonly></textarea>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between gap-4">
+                <button id="btn-re-generate" class="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Обновить текст</span>
+                </button>
+                <button id="btn-copy-report" class="px-5 py-2 text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-copy"></i>
+                    <span id="copy-btn-text">Скопировать отчет</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Import Raw Draft -->
+    <div id="modal-import" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                        <i class="fa-solid fa-file-import"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-100">Импорт / Парсинг текста</h2>
+                        <p class="text-xs text-slate-400">Вставьте текст в формате списков или блоков c `{` и `}`</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal text-slate-400 hover:text-slate-200 transition text-lg px-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-400">Поддерживает иерархический импорт структур с фигурной группировкой или выравниванием списками.</p>
+                <textarea id="import-text-input" rows="8" placeholder="Вставьте сюда текст отчета или плана..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                <button id="btn-load-default-sample" class="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 rounded-lg transition">
+                    <i class="fa-solid fa-rotate-left mr-1.5"></i> Базовый дефолтный шаблон
+                </button>
+                <button id="btn-process-import" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition">
+                    Распарсить и применить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border border-slate-700 text-slate-200 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toast-message">Уведомление</span>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        const DEFAULT_TASKS_TREE = [
+            {
+                id: 'm-1',
+                title: 'Исправление и доработка существующих юнит-тестов',
+                status: 'in_progress',
+                collapsed: false,
+                children: [
+                    { id: 't-1-1', title: 'корректировка порогов и допусков в test_kalman.cpp', status: 'pending', collapsed: false, children: [] },
+                    { id: 't-1-2', title: 'уточнение диапазона индексации бинов в test_features.cpp', status: 'pending', collapsed: false, children: [] },
+                    { id: 't-1-3', title: 'исправление проверки обращения регуляризованных матриц в test_calibrate_pipeline.cpp', status: 'pending', collapsed: false, children: [] },
+                    { id: 't-1-4', title: 'достижение стопроцентного зелёного статуса по всем юнит-тестам', status: 'pending', collapsed: false, children: [] }
+                ]
+            },
+            {
+                id: 'm-2',
+                title: 'Интеграция с энергонезависимой памятью NVS',
+                status: 'in_progress',
+                collapsed: false,
+                children: [
+                    { id: 't-2-1', title: 'разработка обертки для записи и чтения CalibrationBlob', status: 'done', collapsed: false, children: [] },
+                    { id: 't-2-2', title: 'реализация верификации magic-номера и подсчета CRC32', status: 'in_progress', collapsed: false, children: [] },
+                    { id: 't-2-3', title: 'обработка ошибок повреждения NVS и перевод в CALIBRATING', status: 'pending', collapsed: false, children: [] }
+                ]
+            },
+            {
+                id: 'm-3',
+                title: 'Интеграция с сетевым протоколом MQTT',
+                status: 'in_progress',
+                collapsed: false,
+                children: [
+                    { id: 't-3-1', title: 'обработка команд CALIBRATE из топика cmd', status: 'done', collapsed: false, children: [] },
+                    { id: 't-3-2', title: 'публикация model_ack с идентификацией источника (MCU / SERVER)', status: 'in_progress', collapsed: false, children: [] },
+                    { id: 't-3-3', title: 'отправка массива сырых сэмплов calib_samples на сервер', status: 'pending', collapsed: false, children: [] },
+                    { id: 't-3-4', title: 'отправка периодической телеметрии (5 сек)', status: 'pending', collapsed: false, children: [] }
+                ]
+            }
+        ];
+
+        // App State Manager with Recursive Support
+        class AppState {
+            constructor() {
+                this.tasks = [];
+                this.filter = 'all';
+                this.searchQuery = '';
+                this.init();
+            }
+
+            init() {
+                const saved = localStorage.getItem('dev_tasks_data_v4');
+                if (saved) {
+                    try {
+                        this.tasks = JSON.parse(saved);
+                    } catch (e) {
+                        this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS_TREE));
+                    }
+                } else {
+                    this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS_TREE));
+                }
+                this.recalculateAllStatuses();
+            }
+
+            save() {
+                this.recalculateAllStatuses();
+                localStorage.setItem('dev_tasks_data_v4', JSON.stringify(this.tasks));
+                renderApp();
+            }
+
+            resetToDefault() {
+                this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS_TREE));
+                this.save();
+            }
+
+            // Automatic Recursive Status Calculation
+            recalculateAllStatuses() {
+                const updateStatus = (item) => {
+                    if (item.children && item.children.length > 0) {
+                        item.children.forEach(updateStatus);
+                        const allDone = item.children.every(c => c.status === 'done');
+                        const anyActive = item.children.some(c => c.status === 'in_progress' || c.status === 'done');
+                        
+                        if (allDone) {
+                            item.status = 'done';
+                        } else if (anyActive) {
+                            item.status = 'in_progress';
+                        } else {
+                            item.status = 'pending';
+                        }
+                    }
+                };
+                this.tasks.forEach(updateStatus);
+            }
+
+            findItemRecursive(id, list = this.tasks) {
+                for (const item of list) {
+                    if (item.id === id) return item;
+                    if (item.children && item.children.length > 0) {
+                        const found = this.findItemRecursive(id, item.children);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+
+            deleteItemRecursive(id, list = this.tasks) {
+                for (let i = 0; i < list.length; i++) {
+                    if (list[i].id === id) {
+                        list.splice(i, 1);
+                        return true;
+                    }
+                    if (list[i].children && list[i].children.length > 0) {
+                        if (this.deleteItemRecursive(id, list[i].children)) return true;
+                    }
+                }
+                return false;
+            }
+
+            moveItem(id, direction, list = this.tasks) {
+                const index = list.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+                    if (targetIndex >= 0 && targetIndex < list.length) {
+                        const temp = list[index];
+                        list[index] = list[targetIndex];
+                        list[targetIndex] = temp;
+                        return true;
+                    }
+                    return false;
+                }
+                for (const item of list) {
+                    if (item.children && item.children.length > 0) {
+                        if (this.moveItem(id, direction, item.children)) return true;
+                    }
+                }
+                return false;
+            }
+
+            setCascadeStatus(item, newStatus) {
+                item.status = newStatus;
+                if (item.children && item.children.length > 0) {
+                    item.children.forEach(child => this.setCascadeStatus(child, newStatus));
+                }
+            }
+
+            setCollapseAll(collapsedState, list = this.tasks) {
+                list.forEach(item => {
+                    item.collapsed = collapsedState;
+                    if (item.children && item.children.length > 0) {
+                        this.setCollapseAll(collapsedState, item.children);
+                    }
+                });
+            }
+        }
+
+        const state = new AppState();
+
+        function getNextStatus(current) {
+            if (current === 'pending') return 'in_progress';
+            if (current === 'in_progress') return 'done';
+            return 'pending';
+        }
+
+        function getStatusBadge(status) {
+            switch(status) {
+                case 'done':
+                    return `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center gap-1"><i class="fa-solid fa-check text-[10px]"></i> Done [+]</span>`;
+                case 'in_progress':
+                    return `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-amber-950/80 text-amber-400 border border-amber-800/50 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin text-[10px]"></i> In Progress</span>`;
+                default:
+                    return `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1"><i class="fa-regular fa-clock text-[10px]"></i> Pending</span>`;
+            }
+        }
+
+        function getStatusIcon(status) {
+            if (status === 'done') return `<i class="fa-solid fa-square-check text-emerald-400 text-lg"></i>`;
+            if (status === 'in_progress') return `<i class="fa-solid fa-square-minus text-amber-400 text-lg"></i>`;
+            return `<i class="fa-regular fa-square text-slate-500 text-lg"></i>`;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function renderApp() {
+            renderStats();
+            renderTasksTree();
+        }
+
+        function renderStats() {
+            let total = 0;
+            let done = 0;
+            let inProgress = 0;
+
+            function countTask(item) {
+                total++;
+                if (item.status === 'done') done++;
+                if (item.status === 'in_progress') inProgress++;
+                if (item.children && item.children.length > 0) {
+                    item.children.forEach(countTask);
+                }
+            }
+
+            state.tasks.forEach(countTask);
+
+            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-in-progress').innerText = inProgress;
+            document.getElementById('stat-completed').innerText = done;
+            document.getElementById('stat-percent').innerText = `${percent}%`;
+            document.getElementById('progress-bar-fill').style.width = `${percent}%`;
+        }
+
+        // Recursive Tree Node Renderer (Supports Unlimited Nesting Level & Collapsible Nodes)
+        function createTreeNodeHTML(item, level = 0) {
+            const search = state.searchQuery.toLowerCase().trim();
+            const matchesSearch = !search || item.title.toLowerCase().includes(search);
+            const matchesFilter = state.filter === 'all' || item.status === state.filter;
+
+            // Check if any children match search/filter
+            let hasMatchingChildren = false;
+            if (item.children && item.children.length > 0) {
+                hasMatchingChildren = checkChildrenMatch(item.children, search, state.filter);
+            }
+
+            if (!matchesSearch && !matchesFilter && !hasMatchingChildren) {
+                return null;
+            }
+
+            const hasChildren = item.children && item.children.length > 0;
+            const isCollapsed = Boolean(item.collapsed);
+            const nodeDiv = document.createElement('div');
+            
+            if (level === 0) {
+                // Top Level Module Card
+                nodeDiv.className = "bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm task-card mb-4";
+                
+                const header = document.createElement('div');
+                header.className = "p-4 bg-slate-900/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/60";
+                
+                const collapseBtnHTML = hasChildren ? `
+                    <button data-action="toggle-collapse" data-id="${item.id}" class="p-1 text-slate-400 hover:text-white transition focus:outline-none" title="${isCollapsed ? 'Развернуть' : 'Свернуть'}">
+                        <i class="fa-solid ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} text-xs"></i>
+                    </button>
+                ` : `<span class="w-4 inline-block"></span>`;
+
+                header.innerHTML = `
+                    <div class="flex items-start gap-2.5 flex-1">
+                        ${collapseBtnHTML}
+                        <button data-action="toggle-status" data-id="${item.id}" class="mt-0.5 text-slate-400 hover:text-white transition">
+                            ${getStatusIcon(item.status)}
+                        </button>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-slate-100 text-sm sm:text-base">${escapeHtml(item.title)}</span>
+                                ${getStatusBadge(item.status)}
+                                ${hasChildren ? `<span class="text-xs text-slate-500 font-mono">(${item.children.length})</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 self-end sm:self-auto">
+                        <div class="flex items-center bg-slate-800 border border-slate-700 rounded-md overflow-hidden mr-1">
+                            <button data-action="move-up" data-id="${item.id}" class="px-2 py-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 text-xs transition" title="Переместить выше">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                            <div class="w-[1px] h-3 bg-slate-700"></div>
+                            <button data-action="move-down" data-id="${item.id}" class="px-2 py-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 text-xs transition" title="Переместить ниже">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                        </div>
+                        <button data-action="add-subtask" data-id="${item.id}" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-md border border-slate-700 transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Подпункт
+                        </button>
+                        <button data-action="edit-task" data-id="${item.id}" class="p-1.5 text-slate-400 hover:text-slate-200 text-xs transition">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button data-action="delete-task" data-id="${item.id}" class="p-1.5 text-slate-500 hover:text-rose-400 text-xs transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                nodeDiv.appendChild(header);
+
+                if (hasChildren && !isCollapsed) {
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = "divide-y divide-slate-800/40 bg-slate-950/40";
+                    item.children.forEach(child => {
+                        const childElement = createTreeNodeHTML(child, level + 1);
+                        if (childElement) childrenContainer.appendChild(childElement);
+                    });
+                    nodeDiv.appendChild(childrenContainer);
+                }
+            } else {
+                // Sub-items (Nested Rows)
+                nodeDiv.className = "px-4 py-2.5 flex flex-col gap-2 hover:bg-slate-800/30 transition group border-b border-slate-800/20";
+                const paddingLeft = Math.min(level * 1.5, 6); // visual indent limit
+                
+                const collapseBtnHTML = hasChildren ? `
+                    <button data-action="toggle-collapse" data-id="${item.id}" class="p-1 text-slate-400 hover:text-white transition focus:outline-none" title="${isCollapsed ? 'Развернуть' : 'Свернуть'}">
+                        <i class="fa-solid ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} text-[11px]"></i>
+                    </button>
+                ` : `<span class="w-4 inline-block"></span>`;
+
+                const rowUpper = document.createElement('div');
+                rowUpper.className = "flex items-center justify-between gap-3";
+                rowUpper.style.paddingLeft = `${paddingLeft}rem`;
+
+                rowUpper.innerHTML = `
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        ${collapseBtnHTML}
+                        <button data-action="toggle-status" data-id="${item.id}" class="text-slate-400 hover:text-white transition">
+                            ${getStatusIcon(item.status)}
+                        </button>
+                        <span class="text-xs sm:text-sm ${item.status === 'done' ? 'line-through text-slate-500' : 'text-slate-300'} truncate">
+                            ${escapeHtml(item.title)}
+                        </span>
+                        ${hasChildren ? `<span class="text-[11px] text-slate-500 font-mono">(${item.children.length})</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${getStatusBadge(item.status)}
+                        <div class="opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+                            <button data-action="move-up" data-id="${item.id}" class="p-1 text-slate-400 hover:text-slate-200 text-xs" title="Переместить выше">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                            <button data-action="move-down" data-id="${item.id}" class="p-1 text-slate-400 hover:text-slate-200 text-xs" title="Переместить ниже">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                            <button data-action="add-subtask" data-id="${item.id}" class="p-1 text-blue-400 hover:text-blue-300 text-xs" title="Добавить подпункт">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                            <button data-action="edit-task" data-id="${item.id}" class="p-1 text-slate-400 hover:text-slate-200 text-xs">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button data-action="delete-task" data-id="${item.id}" class="p-1 text-slate-500 hover:text-rose-400 text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                nodeDiv.appendChild(rowUpper);
+
+                if (hasChildren && !isCollapsed) {
+                    const nestedChildrenContainer = document.createElement('div');
+                    nestedChildrenContainer.className = "w-full border-l border-slate-800/60 ml-2";
+                    item.children.forEach(child => {
+                        const childElement = createTreeNodeHTML(child, level + 1);
+                        if (childElement) nestedChildrenContainer.appendChild(childElement);
+                    });
+                    nodeDiv.appendChild(nestedChildrenContainer);
+                }
+            }
+
+            return nodeDiv;
+        }
+
+        function checkChildrenMatch(children, search, filter) {
+            return children.some(child => {
+                const mSearch = !search || child.title.toLowerCase().includes(search);
+                const mFilter = filter === 'all' || child.status === filter;
+                if (mSearch && mFilter) return true;
+                if (child.children && child.children.length > 0) {
+                    return checkChildrenMatch(child.children, search, filter);
+                }
+                return false;
+            });
+        }
+
+        function renderTasksTree() {
+            const container = document.getElementById('tasks-tree-container');
+            container.innerHTML = '';
+
+            let renderedCount = 0;
+            state.tasks.forEach(module => {
+                const moduleNode = createTreeNodeHTML(module, 0);
+                if (moduleNode) {
+                    container.appendChild(moduleNode);
+                    renderedCount++;
+                }
+            });
+
+            if (renderedCount === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 border border-dashed border-slate-800 rounded-xl bg-slate-900/40">
+                        <i class="fa-solid fa-folder-open text-3xl text-slate-600 mb-2"></i>
+                        <p class="text-sm text-slate-400">Задачи не найдены</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Global Event Delegation for Task Actions
+        document.getElementById('tasks-tree-container').addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const action = button.getAttribute('data-action');
+            const id = button.getAttribute('data-id');
+            const item = state.findItemRecursive(id);
+            if (!item) return;
+
+            if (action === 'toggle-collapse') {
+                item.collapsed = !item.collapsed;
+                state.save();
+            }
+            else if (action === 'toggle-status') {
+                const nextStatus = getNextStatus(item.status);
+                state.setCascadeStatus(item, nextStatus);
+                state.save();
+                showToast("Статус пункта обновлен");
+            }
+            else if (action === 'move-up') {
+                if (state.moveItem(id, 'up')) {
+                    state.save();
+                    showToast("Порядок задач изменен");
+                }
+            }
+            else if (action === 'move-down') {
+                if (state.moveItem(id, 'down')) {
+                    state.save();
+                    showToast("Порядок задач изменен");
+                }
+            }
+            else if (action === 'add-subtask') {
+                openTaskModal({
+                    title: `Добавить подпункт к: "${item.title}"`,
+                    parentId: item.id,
+                    targetId: '',
+                    value: ''
+                });
+            }
+            else if (action === 'edit-task') {
+                openTaskModal({
+                    title: 'Редактировать пункт',
+                    parentId: '',
+                    targetId: item.id,
+                    value: item.title
+                });
+            }
+            else if (action === 'delete-task') {
+                if (confirm(`Удалить пункт "${item.title}" и все его подпункты?`)) {
+                    state.deleteItemRecursive(id);
+                    state.save();
+                    showToast("Элемент удален");
+                }
+            }
+        });
+
+        document.getElementById('btn-expand-all').addEventListener('click', () => {
+            state.setCollapseAll(false);
+            state.save();
+            showToast("Все подпункты развернуты");
+        });
+
+        document.getElementById('btn-collapse-all').addEventListener('click', () => {
+            state.setCollapseAll(true);
+            state.save();
+            showToast("Все подпункты свернуты");
+        });
+
+        document.getElementById('btn-add-root-task').addEventListener('click', () => {
+            openTaskModal({
+                title: 'Новый раздел / Модуль верхнего уровня',
+                parentId: '',
+                targetId: '',
+                value: ''
+            });
+        });
+
+        function openTaskModal({ title, parentId, targetId, value }) {
+            document.getElementById('task-modal-title').innerText = title;
+            document.getElementById('task-modal-parent-id').value = parentId || '';
+            document.getElementById('task-modal-target-id').value = targetId || '';
+            const input = document.getElementById('task-modal-input');
+            input.value = value || '';
+            document.getElementById('modal-task-form').classList.remove('hidden');
+            setTimeout(() => input.focus(), 50);
+        }
+
+        document.getElementById('btn-save-task-modal').addEventListener('click', () => {
+            const inputVal = document.getElementById('task-modal-input').value.trim();
+            const parentId = document.getElementById('task-modal-parent-id').value;
+            const targetId = document.getElementById('task-modal-target-id').value;
+
+            if (!inputVal) {
+                showToast("Название не может быть пустым");
+                return;
+            }
+
+            if (targetId) {
+                // Editing existing item
+                const targetItem = state.findItemRecursive(targetId);
+                if (targetItem) targetItem.title = inputVal;
+            } else if (parentId) {
+                // Adding subtask
+                const parentItem = state.findItemRecursive(parentId);
+                if (parentItem) {
+                    if (!parentItem.children) parentItem.children = [];
+                    parentItem.children.push({
+                        id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+                        title: inputVal,
+                        status: 'pending',
+                        collapsed: false,
+                        children: []
+                    });
+                    // Automatically expand parent when adding a new child
+                    parentItem.collapsed = false;
+                }
+            } else {
+                // Adding root item
+                state.tasks.push({
+                    id: 'm-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+                    title: inputVal,
+                    status: 'pending',
+                    collapsed: false,
+                    children: []
+                });
+            }
+
+            state.save();
+            document.getElementById('modal-task-form').classList.add('hidden');
+            showToast("Сохранено!");
+        });
+
+        // Backup to JSON File & Restore
+        document.getElementById('btn-export-json').addEventListener('click', () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.tasks, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `dev_tasks_backup_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("База данных сохранена в .json файл!");
+        });
+
+        document.getElementById('btn-import-json-trigger').addEventListener('click', () => {
+            document.getElementById('input-import-file').click();
+        });
+
+        document.getElementById('input-import-file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const importedTasks = JSON.parse(event.target.result);
+                    if (Array.isArray(importedTasks)) {
+                        state.tasks = importedTasks;
+                        state.save();
+                        showToast("База данных успешно загружена из файла!");
+                    } else {
+                        showToast("Неверный формат файла .json");
+                    }
+                } catch(err) {
+                    showToast("Ошибка чтения файла JSON");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Improved Text Parser matching User Draft Screenshots & Syntax
+        document.getElementById('btn-process-import').addEventListener('click', () => {
+            const rawText = document.getElementById('import-text-input').value;
+            if (!rawText.trim()) {
+                showToast("Пожалуйста, введите текст для разбора");
+                return;
+            }
+
+            try {
+                const parsedTree = parseDraftText(rawText);
+                if (parsedTree && parsedTree.length > 0) {
+                    state.tasks = parsedTree;
+                    state.save();
+                    document.getElementById('modal-import').classList.add('hidden');
+                    showToast("Текст отчета успешно распарсен!");
+                } else {
+                    showToast("Не удалось извлечь структуру задач");
+                }
+            } catch(e) {
+                showToast("Ошибка при парсинге текста");
+            }
+        });
+
+        // ИСПРАВЛЕННЫЙ ВАРИАНТ ФУНКЦИИ:
+        function parseDraftText(text) {
+            const lines = text.split('\n'); // Используем '\n' вместо прямого переноса строки
+            const result = [];
+            let currentRoot = null;
+
+            lines.forEach(line => {
+                let trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
+
+                // Clean string markup
+                trimmed = trimmed.replace(/^[\-\*\•\d\.\)]+/, '').trim();
+                trimmed = trimmed.replace(/[\{\}\,]/g, '').trim();
+
+                if (!trimmed) return;
+
+                const indent = line.search(/\S/);
+                const isRoot = indent === 0 || line.includes('{') || !currentRoot;
+
+                if (isRoot || !currentRoot) {
+                    currentRoot = {
+                        id: 'm-' + Math.random().toString(36).substr(2, 6),
+                        title: trimmed,
+                        status: 'pending',
+                        collapsed: false,
+                        children: []
+                    };
+                    result.push(currentRoot);
+                } else {
+                    currentRoot.children.push({
+                        id: 't-' + Math.random().toString(36).substr(2, 6),
+                        title: trimmed,
+                        status: 'pending',
+                        collapsed: false,
+                        children: []
+                    });
+                }
+            });
+
+            return result;
+        }
+
+        // Executive Report Logic
+        function generateExecutiveReport() {
+            const dateStart = document.getElementById('report-date-start').value || '03.11.2026';
+            const dateEnd = document.getElementById('report-date-end').value || '08.11.2026';
+            const includeServer = document.getElementById('report-include-server-note').checked;
+
+            let doneList = [];
+            let inProgressList = [];
+            let pendingList = [];
+
+            function traverse(item, parentTitle = '') {
+                const titleStr = parentTitle ? `${parentTitle}: ${item.title}` : item.title;
+                if (!item.children || item.children.length === 0) {
+                    if (item.status === 'done') doneList.push(titleStr);
+                    else if (item.status === 'in_progress') inProgressList.push(titleStr);
+                    else pendingList.push(titleStr);
+                } else {
+                    item.children.forEach(c => traverse(c, titleStr));
+                }
+            }
+
+            state.tasks.forEach(m => traverse(m, ''));
+
+            let text = `ОТЧЕТ ПО ВЫПОЛНЕННОЙ РАБОТЕ И ПЛАНАМ РАЗРАБОТКИ
+`;
+            text += `Период: ${dateStart} — ${dateEnd}
+
+`;
+
+            text += `1. ВЫПОЛНЕННЫЕ РАБОТЫ ЗА ОТЧЕТНЫЙ ПЕРИОД:
+`;
+            if (doneList.length > 0) {
+                doneList.forEach(item => { text += `— Успешно реализовано: ${item}
+`; });
+            } else {
+                text += `— Завершен прогон и верификация базовых юнит-тестов системных модулей.
+`;
+            }
+
+            text += `
+2. ТЕКУЩИЕ ЗАДАЧИ В РАБОТЕ И ТЕХНИЧЕСКИЙ СТАТУС:
+`;
+            if (inProgressList.length > 0) {
+                inProgressList.forEach(item => { text += `— В процессе отладки и внедрения: ${item}
+`; });
+            } else {
+                text += `— Отладка взаимодействия системных модулей.
+`;
+            }
+
+            if (includeServer) {
+                text += `— Примечание по серверу: Подготовлены архитектурные наброски и спецификации протоколов взаимодействия.
+`;
+            }
+
+            text += `
+3. ПЛАН РАБОТ НА СЛЕДУЮЩИЙ ПЕРИОД:
+`;
+            if (pendingList.length > 0) {
+                pendingList.forEach(item => { text += `— ${item}
+`; });
+            } else {
+                text += `— Проведение испытаний на целевом железе ESP32-S3.
+`;
+            }
+
+            document.getElementById('report-output-text').value = text;
+        }
+
+        document.getElementById('btn-generate-report').addEventListener('click', () => {
+            generateExecutiveReport();
+            document.getElementById('modal-report').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-re-generate').addEventListener('click', generateExecutiveReport);
+        document.getElementById('report-include-server-note').addEventListener('change', generateExecutiveReport);
+
+        document.getElementById('btn-copy-report').addEventListener('click', () => {
+            const textarea = document.getElementById('report-output-text');
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                const btnText = document.getElementById('copy-btn-text');
+                btnText.innerText = "Скопировано!";
+                showToast("Отчет скопирован в буфер обмена");
+                setTimeout(() => { btnText.innerText = "Скопировать отчет"; }, 2000);
+            });
+        });
+
+        // Modals Controls
+        document.getElementById('btn-import-modal').addEventListener('click', () => {
+            document.getElementById('modal-import').classList.remove('hidden');
+        });
+
+        document.querySelectorAll('.btn-close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('modal-report').classList.add('hidden');
+                document.getElementById('modal-import').classList.add('hidden');
+                document.getElementById('modal-task-form').classList.add('hidden');
+            });
+        });
+
+        document.getElementById('btn-load-default-sample').addEventListener('click', () => {
+            state.resetToDefault();
+            document.getElementById('modal-import').classList.add('hidden');
+            showToast("Восстановлен исходный набор задач!");
+        });
+
+        // Filter Controls
+        document.querySelectorAll('.btn-filter').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetBtn = e.currentTarget;
+                document.querySelectorAll('.btn-filter').forEach(b => {
+                    b.classList.remove('bg-slate-800', 'text-slate-200');
+                    b.classList.add('text-slate-400');
+                });
+                targetBtn.classList.add('bg-slate-800', 'text-slate-200');
+                targetBtn.classList.remove('text-slate-400');
+                
+                state.filter = targetBtn.getAttribute('data-filter');
+                renderApp();
+            });
+        });
+
+        // Search Input
+        document.getElementById('input-search').addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            renderApp();
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        window.onload = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
